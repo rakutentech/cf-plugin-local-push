@@ -1,6 +1,9 @@
 default: build
 
-build:
+deps:
+	go get -v .
+
+build: deps
 	go build -o bin/cf-plugin-local-push
 
 install: build
