@@ -14,7 +14,7 @@ Cloudfoundry community provides [bosh-lite](https://github.com/cloudfoundry/bosh
 
 The following is demo to run sample ruby application (the code is available [here](/sample)).
 
-![demo]()
+![demo](/doc/local-push.gif)
 
 Just `cf local-push`, it detects application runtime and start building application with its buildpack. While it takes time at first push, it's really fast in the second time because of docker build cache.
 
