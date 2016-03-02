@@ -9,6 +9,7 @@ import (
 func main() {
 	localPush := LocalPush{
 		OutStream: os.Stdout,
+		InStream:  os.Stdin,
 	}
 
 	// Start plugin
