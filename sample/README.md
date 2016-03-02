@@ -1,6 +1,6 @@
 # Sample 
 
-This directory has sample ruby application for `cf local-push`.
+This is a sample ruby application for `cf local-push`.
 
 Run the following command and start application,
 
