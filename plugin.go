@@ -6,6 +6,10 @@ import (
 	"os"
 	"os/exec"
 
+	"flag"
+
+	"os/signal"
+
 	"github.com/cloudfoundry/cli/plugin"
 	"github.com/tcnksm/go-input"
 )
@@ -22,6 +26,12 @@ const (
 const EnvDebug = "DEBUG_PLUGIN"
 
 const (
+	// DefaultPort is default port number
+	DefaultPort = "8080"
+
+	// DefaultImageName
+	DefaultImageName = "cf-local-push"
+
 	// Dockerfile is file name of Dockerfile
 	Dockerfile = "Dockerfile"
 )
@@ -58,7 +68,7 @@ func (p *LocalPush) Run(cliConn plugin.CliConnection, arg []string) {
 		os.Exit(ExitCodeOK)
 	}
 
-	// Read CLI context.
+	// Read CLI context (Currently, ctx val is not used but in future it should).
 	ctx, err := NewCLIContext(cliConn)
 	if err != nil {
 		fmt.Fprintf(p.OutStream, "Failed to read cf command context: %s\n", err)
@@ -68,11 +78,32 @@ func (p *LocalPush) Run(cliConn plugin.CliConnection, arg []string) {
 	// Call run instead of doing the work here so we can use
 	// `defer` statements within the function and have them work properly.
 	// (defers aren't called with os.Exit)
-	os.Exit(p.run(ctx, arg))
+	os.Exit(p.run(ctx, arg[1:]))
 }
 
-// run runs local-push.
+// run runs local-push it returns exit code.
 func (p *LocalPush) run(ctx *CLIContext, args []string) int {
+
+	var (
+		port  string
+		image string
+	)
+
+	flags := flag.NewFlagSet("plugin", flag.ContinueOnError)
+	flags.SetOutput(p.OutStream)
+	flags.Usage = func() {
+		fmt.Fprintln(p.OutStream, p.Usage())
+	}
+
+	flags.StringVar(&port, "port", DefaultPort, "")
+	flags.StringVar(&port, "p", DefaultPort, "(Short)")
+
+	flags.StringVar(&image, "image", DefaultImageName, "")
+	flags.StringVar(&image, "i", DefaultImageName, "(Short)")
+
+	if err := flags.Parse(args); err != nil {
+		return ExitCodeError
+	}
 
 	ui := &input.UI{
 		Writer: p.OutStream,
@@ -85,7 +116,8 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 		return ExitCodeError
 	}
 
-	// Check Dockerfile is exist or not
+	// Check Dockerfile is exist or not.
+	// If it's exist, ask user to overwriting.
 	if _, err := os.Stat(Dockerfile); !os.IsNotExist(err) {
 		fmt.Fprintf(p.OutStream, "Dockerfile is already exist\n")
 		query := "Overwrite Dockerfile? [yN]"
@@ -128,18 +160,63 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 	}
 
 	fmt.Fprintf(p.OutStream, "(cf-local-push) Start building docker image\n")
-	if err := docker("build", "-t", "image-localpush", "."); err != nil {
+
+	docker := &Docker{
+		OutStream: p.OutStream,
+		Discard:   false,
+	}
+
+	if err := docker.execute("build", "-t", image, "."); err != nil {
 		fmt.Fprintf(p.OutStream, "%s\n", err)
 		return ExitCodeError
 	}
 
 	fmt.Fprintf(p.OutStream, "(cf-local-push) Start running docker container\n")
-	if err := docker("run", "-p", "8080:8080", "-e", "PORT=8080", "image-localpush"); err != nil {
-		fmt.Fprintf(p.OutStream, "%s\n", err)
-		return ExitCodeError
-	}
 
-	return 0
+	// errCh
+	errCh := make(chan error, 1)
+
+	// port mapping settings
+	portMap := fmt.Sprintf("%s:%s", port, port)
+	portEnv := fmt.Sprintf("PORT=%s", port)
+	portEnvVcap := fmt.Sprintf("VCAP_APP_PORT=%s", port)
+
+	// Use same name as image
+	container := image
+
+	go func() {
+		Debugf("Run command: docker run -p %s -e %s -e %s--name %s %s",
+			portMap, portEnv, portEnvVcap, container, image)
+		errCh <- docker.execute("run",
+			"-p", portMap,
+			"-e", portEnv,
+			"-e", portEnvVcap,
+			"--name", container,
+			image)
+	}()
+
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, os.Interrupt)
+
+	select {
+	case <-sigCh:
+		fmt.Fprintf(p.OutStream, "Interrupt: Stop and remove container (It takes a few seconds...")
+
+		// Don't output
+		docker.Discard = true
+
+		// Stop & Remove docker container
+		docker.execute("stop", container)
+		docker.execute("rm", container)
+
+		return ExitCodeOK
+	case err := <-errCh:
+		if err != nil {
+			fmt.Fprintf(p.OutStream, "Failed to run container %s: %s\n", err)
+			return ExitCodeError
+		}
+		return ExitCodeOK
+	}
 }
 
 func (p *LocalPush) GetMetadata() plugin.PluginMetadata {
@@ -159,10 +236,22 @@ func (p *LocalPush) GetMetadata() plugin.PluginMetadata {
 }
 
 func (p *LocalPush) Usage() string {
-	text := `cf local-push 
+	text := `cf local-push [options]
 
-local-push command tells cf to deploy your app on local docker
-container.
+local-push command tells cf to deploy current working directory app on
+local docker container. You need to prepare docker environment before.
+
+local-push remove the container after stop the container.
+
+Options:
+
+  -port PORT      Port number to map to docker container. You can access
+                  to application via this port. By default, '8080' is used.
+                  If you use, docker machine for running docker, you can
+                  access application by 'curl $(docker-machine ip):PORT)'.
+
+  -image NAME     Docker image name. By default, 'local-push' is used.
+
 `
 	return text
 }
