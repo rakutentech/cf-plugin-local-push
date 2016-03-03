@@ -1,4 +1,6 @@
-# cf-plugin-local-push
+# cf-plugin-local-push [![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)][license]
+
+[license]: /LICENSE
 
 `cf-plugin-local-push` is a [cloudfoundry/cli](https://github.com/cloudfoundry/cli) plugin. It allows you to push your cloudfoundry application to your local docker container with actual [buildpacks](http://docs.cloudfoundry.org/buildpacks/) :whale:. This plugin manipulates [DEA](https://docs.cloudfoundry.org/concepts/architecture/execution-agent.html) (where cf application is runnging) enviroment. So this can be used for setting up very light weight debug environment for application developers. And power of docker build cache, start up application is really *fast*.
 
