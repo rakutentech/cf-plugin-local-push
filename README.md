@@ -49,6 +49,10 @@ $ cf local-push
 $ curl $(docker-machine ip):8080
 ```
 
+## VS.
+
+The main idea comes from [CenturyLinkLabs/building](https://github.com/CenturyLinkLabs/building). While it focuses on Heroku application, `local-push` does Cloud Foundry application (There are slight difference between them). 
+
 ## Contribution
 
 1. Fork ([https://github.com/tcnksm/cf-plugin-local-push/fork](https://github.com/tcnksm/cf-plugin-local-push/fork))
