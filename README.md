@@ -8,7 +8,7 @@ This plugin is still *PoC*, so please be careful to use this plugin.
 
 ## Why?
 
-Why we need this? Because the application developers (at least, me) want to debug their cf app on local environment before `push`-ing to actual environment. Since it's faster and you don't need care about breaking the app or wasting resources (you may not have internet access when they need to run it), it's important to have local development environment.
+Why we need this? Because the application developers (at least, me) want to debug their cf app on local environment before `push`-ing to actual environment. Since it's faster and you don't need care about breaking the app or wasting resources (you may not be able to connect CF inside DC), it's important to have local development environment.
 
 Cloudfoundry community provides [bosh-lite](https://github.com/cloudfoundry/bosh-lite) for local dev environment for BOSH using warden containers. But for me, it's too heavy and not for **user**. It's only for CF operators. 
 
