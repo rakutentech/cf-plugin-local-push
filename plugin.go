@@ -2,13 +2,11 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-
-	"flag"
-
 	"os/signal"
 
 	"github.com/cloudfoundry/cli/plugin"
