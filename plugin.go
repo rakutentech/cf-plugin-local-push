@@ -33,6 +33,9 @@ const (
 
 	// Dockerfile is file name of Dockerfile
 	Dockerfile = "Dockerfile"
+
+	// DockerUser to exec command to container
+	DockerUser = "vcap"
 )
 
 // dockerfileText is used for build docker image for target application.
@@ -84,9 +87,9 @@ func (p *LocalPush) Run(cliConn plugin.CliConnection, arg []string) {
 func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 
 	var (
-		port  string
-		image string
-
+		port    string
+		image   string
+		enter   bool
 		version bool
 	)
 
@@ -102,6 +105,7 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 	flags.StringVar(&image, "image", DefaultImageName, "")
 	flags.StringVar(&image, "i", DefaultImageName, "(Short)")
 
+	flags.BoolVar(&enter, "enter", false, "")
 	flags.BoolVar(&version, "version", false, "")
 	flags.BoolVar(&version, "v", false, "(Short)")
 
@@ -126,10 +130,38 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 		Reader: p.InStream,
 	}
 
+	// Use same name as image
+	container := image
+
+	docker := &Docker{
+		OutStream: p.OutStream,
+		InStream:  p.InStream,
+		Discard:   false,
+	}
+
 	// Check docker is installed or not.
 	if _, err := exec.LookPath("docker"); err != nil {
 		fmt.Fprintf(p.OutStream, "docker command is not found in your $PATH. Install it before.\n")
 		return ExitCodeError
+	}
+
+	// Enter the container
+	if enter {
+		fmt.Fprintf(p.OutStream, "(cf-local-push) Enter container\n")
+		err := docker.execute("exec",
+			"--interactive",
+			"--tty",
+			"--user", DockerUser,
+			container,
+			"/bin/bash",
+		)
+
+		if err != nil {
+			fmt.Fprintf(p.OutStream, "Failed to enter the container %s: %s", container, err)
+			return ExitCodeError
+		}
+
+		return ExitCodeOK
 	}
 
 	// Check Dockerfile is exist or not.
@@ -177,11 +209,6 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 
 	fmt.Fprintf(p.OutStream, "(cf-local-push) Start building docker image\n")
 
-	docker := &Docker{
-		OutStream: p.OutStream,
-		Discard:   false,
-	}
-
 	if err := docker.execute("build", "-t", image, "."); err != nil {
 		fmt.Fprintf(p.OutStream, "%s\n", err)
 		return ExitCodeError
@@ -196,9 +223,6 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 	portMap := fmt.Sprintf("%s:%s", port, port)
 	portEnv := fmt.Sprintf("PORT=%s", port)
 	portEnvVcap := fmt.Sprintf("VCAP_APP_PORT=%s", port)
-
-	// Use same name as image
-	container := image
 
 	go func() {
 		Debugf("Run command: docker run -p %s -e %s -e %s--name %s %s",
@@ -263,13 +287,16 @@ Options:
 
   -port PORT      Port number to map to docker container. You can access
                   to application via this port. By default, '8080' is used.
-                  If you use, docker machine for running docker, you can
+                  If you use docker machine for running docker, you can
                   access application by 'curl $(docker-machine ip):PORT)'.
 
   -image NAME     Docker image name. By default, 'local-push' is used.
 
-  -version        Show version and quit.
+  -enter          Enter the container which starts by 'local-push'.
+                  You must use this option after exec 'local-push' and
+                  while running. You can regard this as 'ssh'.
 
+  -version        Show version and quit.          
 `
 	return text
 }
