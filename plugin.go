@@ -1,13 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-
-	"flag"
-
 	"os/signal"
 
 	"github.com/cloudfoundry/cli/plugin"
@@ -87,6 +86,8 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 	var (
 		port  string
 		image string
+
+		version bool
 	)
 
 	flags := flag.NewFlagSet("plugin", flag.ContinueOnError)
@@ -101,8 +102,23 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 	flags.StringVar(&image, "image", DefaultImageName, "")
 	flags.StringVar(&image, "i", DefaultImageName, "(Short)")
 
+	flags.BoolVar(&version, "version", false, "")
+	flags.BoolVar(&version, "v", false, "(Short)")
+
 	if err := flags.Parse(args); err != nil {
 		return ExitCodeError
+	}
+
+	if version {
+		var buf bytes.Buffer
+		fmt.Fprintf(&buf, "%s v%s", Name, VersionStr())
+
+		if len(GitCommit) != 0 {
+			fmt.Fprintf(&buf, " (%s)", GitCommit)
+		}
+
+		fmt.Fprintln(p.OutStream, buf.String())
+		return ExitCodeOK
 	}
 
 	ui := &input.UI{
@@ -212,7 +228,7 @@ func (p *LocalPush) run(ctx *CLIContext, args []string) int {
 		return ExitCodeOK
 	case err := <-errCh:
 		if err != nil {
-			fmt.Fprintf(p.OutStream, "Failed to run container %s: %s\n", err)
+			fmt.Fprintf(p.OutStream, "Failed to run container %s: %s\n", container, err)
 			return ExitCodeError
 		}
 		return ExitCodeOK
@@ -251,6 +267,8 @@ Options:
                   access application by 'curl $(docker-machine ip):PORT)'.
 
   -image NAME     Docker image name. By default, 'local-push' is used.
+
+  -version        Show version and quit.
 
 `
 	return text
