@@ -1,3 +1,4 @@
+VERSION = 0.1.0
 COMMIT = $$(git describe --always)
 
 default: build
@@ -11,6 +12,19 @@ build: deps
 install: build
 	cf install-plugin bin/cf-plugin-local-push -f
 	cf plugins
+
+xbuild: deps
+	@if [ -d "out/$(VERSION)" ]; then rm -fr out; fi
+	gox \
+      -ldflags "-X main.GitCommit=$(COMMIT)" \
+      -parallel=3 \
+      -os="darwin linux windows" \
+      -arch="amd64" \
+      -output "out/$(VERSION)/{{.Dir}}_{{.OS}}_{{.Arch}}"
+	cd out/$(VERSION) && shasum * > SHASUMS && cat SHASUMS
+
+release: 
+	ghr $(VERSION) out/$(VERSION)
 
 uninstall:
 	cf uninstall-plugin 'local-push'
