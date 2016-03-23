@@ -29,7 +29,14 @@ $ cd $GOPATH/src/github.com/tcnksm/cf-plugin-local-push
 $ make install # if you have already installed, then run `make uninstall` before
 ```
 
-Since this plugin is still immature and PoC, it's not uploaded on [Community Plugin Repo](http://plugins.cloudfoundry.org/ui/). But in future, I'll add this plugin there and make it more easy to install.
+Or you can install it from [my experimental plugin repository](https://t-plugins.au-syd.mybluemix.net/ui/).
+
+```bash
+$ cf add-plugin-repo tcnksm https://t-plugins.au-syd.mybluemix.net
+$ cf install-plugin -r tcnksm local-push
+```
+
+Since this plugin is still immature, it's not on [Community Plugin Repo](http://plugins.cloudfoundry.org/ui/). 
 
 ## Usage
 
